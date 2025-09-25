@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multimodal Chat UI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #e9ecef;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 850px;
+            background-color: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+
+        .chat-header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 1.2rem;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            border-bottom: 3px solid #0056b3;
+            display: flex; /* Added for alignment */
+            justify-content: space-between; /* Added for alignment */
+            align-items: center; /* Added for alignment */
+        }
+        
+        /* New style for smaller session ID text */
+        .chat-header span {
+            font-size: 0.9rem;
+            font-weight: 400;
+            opacity: 0.8;
+            margin-left: 10px;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 85%;
+            padding: 12px 18px;
+            border-radius: 25px;
+            word-wrap: break-word;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: #dcf8c6;
+            border-bottom-right-radius: 5px;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background-color: #e5e5ea;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .function-message {
+            font-size: 0.9em;
+            color: #555;
+            background-color: #f0f0f0;
+            border: 1px dashed #a0a0a0;
+            padding: 10px 15px;
+            border-radius: 15px;
+        }
+        
+        .user-image {
+            max-width: 100%; 
+            height: auto; 
+            border-radius: 10px;
+            margin-top: 10px;
+            max-height: 250px; 
+            width: 250px; 
+            object-fit: contain;
+            display: block; 
+        }
+
+        /* Typing indicator styles */
+        .typing-indicator span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #343a40;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: bounce 1s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        /* Beautified styles for the confirmation/session modal */
+        .confirmation-modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .confirmation-modal {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            text-align: center;
+            /* Note: We will use a modified transform for initial position */
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        /* Modified keyframe for centering */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        
+        .confirmation-modal.active {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .confirmation-modal h3 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #343a40;
+        }
+
+        .confirmation-modal p {
+            margin: 0.5rem 0 1rem;
+            color: #6c757d;
+            line-height: 1.6;
+        }
+
+        .confirmation-modal input[type="text"] {
+            padding: 12px 20px;
+            border: 2px solid #ced4da;
+            border-radius: 12px;
+            font-size: 1rem;
+            width: 100%;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        .confirmation-modal input[type="text"]:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .confirmation-modal button {
+            padding: 12px 25px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+
+        .confirmation-modal button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .input-container {
+            display: flex;
+            padding: 1.5rem;
+            border-top: 1px solid #dee2e6;
+            background-color: #f8f9fa;
+            align-items: center;
+        }
+
+        .input-container input[type="text"] {
+            flex-grow: 1;
+            padding: 12px 20px;
+            border: 1px solid #ced4da;
+            border-radius: 25px;
+            outline: none;
+            margin-right: 10px;
+            font-size: 1rem;
+        }
+
+        .input-container button {
+            padding: 12px 25px;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .input-container button:hover {
+            background-color: #0056b3;
+        }
+
+        .image-preview {
+            margin-top: 10px;
+            width: 250;
+            height: 150;
+            border-radius: 10px;
+        }
+        
+        .selected-image-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: #e5e5ea;
+            padding: 10px;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            position: relative;
+        }
+        
+        .selected-image-container img {
+            max-width: 80px;
+            max-height: 80px;
+            border-radius: 10px;
+        }
+        
+        .remove-image-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #dc3545;
+            font-size: 1.2rem;
+            position: absolute;
+            top: 5px;
+            right: 5px;
+        }
+
+        /* Styles for the voice and image buttons */
+        .voice-btn, .image-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            margin-left: 10px;
+            cursor: pointer;
+            transition: color 0.3s;
+            font-size: 2rem; /* Adjust icon size */
+            color: #6c757d;
+        }
+        
+        .voice-btn:hover, .image-btn:hover {
+            color: #007bff;
+        }
+        
+        .voice-btn.listening {
+            color: red;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="confirmation-modal-backdrop" id="session-modal-backdrop">
+    <div class="confirmation-modal" id="session-modal">
+        <h3>Welcome to FastAPI Chat</h3>
+        <p>Please enter your Session ID to continue the conversation or start a new one.</p>
+        <input type="text" id="session-id-input" placeholder="Enter Session ID (e.g., user123)">
+        <button id="start-chat-btn">Start Chat</button>
+    </div>
+</div>
+<div class="chat-container">
+    <div class="chat-header">FastAPI Chat <span id="session-id-display"></span></div>
+    <div class="chat-messages" id="chat-messages">
+    </div>
+    <div id="image-preview-container"></div>
+    <div class="input-container">
+        <input type="text" id="user-input" placeholder="Type a message...">
+        <button id="send-btn">Send</button>
+        <input type="file" id="image-input" accept="image/*" style="display: none;">
+        <button id="image-btn" class="image-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+        </button>
+        <button id="voice-btn" class="voice-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>
+            </svg>
+        </button>
+    </div>
+</div>
+
+<script>
+
+    const SESSION_ENDPOINT="http://localhost:8080/createSession"
+    const CHAT_ENDPOINT="http://localhost:8080/chat"
+
+    const chatMessages = document.getElementById('chat-messages');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const voiceBtn = document.getElementById('voice-btn');
+    const imageBtn = document.getElementById('image-btn');
+    const imageInput = document.getElementById('image-input');
+    const imagePreviewContainer = document.getElementById('image-preview-container');
+    const sessionIdDisplay = document.getElementById('session-id-display');
+    
+    // New Session Modal Elements
+    const sessionModalBackdrop = document.getElementById('session-modal-backdrop');
+    const sessionModal = document.getElementById('session-modal');
+    const sessionIdInput = document.getElementById('session-id-input');
+    const startChatBtn = document.getElementById('start-chat-btn');
+
+    let selectedImage = null;
+    let currentSessionId = null; // Variable to store the active session ID
+
+
+
+    async function startSession() {
+        const sessionId = sessionIdInput.value.trim();
+        if (!sessionId) {
+            alert("Please enter a Session ID to start the chat.");
+            return;
+        }
+
+        // 1. Prepare the payload
+        const sessionPayload = {
+            "sessionId": sessionId
+        };
+        
+        // Temporarily disable the button and show a loading state
+        startChatBtn.textContent = 'Starting...';
+        startChatBtn.disabled = true;
+
+        try {
+            // 2. Send the session ID to the server
+            const response = await fetch(SESSION_ENDPOINT, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(sessionPayload)
+            });
+
+            // 3. Check for success
+            if (response.ok) {
+                // If successful, set the session ID and open the chat
+                currentSessionId = sessionId;
+                sessionModalBackdrop.style.display = 'none';
+                sessionModal.classList.remove('active');
+                sessionIdDisplay.textContent = `Session ID: ${currentSessionId}`;
+                addMessage(`Welcome! Session **${currentSessionId}** started successfully.`, 'bot');
+                
+                // If the server returns some initial data/history, you can process it here.
+                // const sessionData = await response.json(); 
+            } else {
+                // Handle non-200 responses (e.g., server error, session ID already exists, etc.)
+                const errorText = await response.text();
+                alert(`Failed to start session (${response.status}): ${errorText || 'Server error'}`);
+            }
+
+        } catch (error) {
+            // Handle network errors
+            console.error("Error creating session:", error);
+            alert("A network error occurred. Please check the server address and try again.");
+        } finally {
+            // Restore the button state
+            startChatBtn.textContent = 'Start Chat';
+            startChatBtn.disabled = false;
+        }
+    }
+    
+    // Event listeners for the new modal
+    startChatBtn.addEventListener('click', startSession);
+    sessionIdInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            startSession();
+        }
+    });
+
+
+    // Show the modal on page load
+    window.onload = () => {
+        sessionModalBackdrop.style.display = 'flex';
+        // Add a slight delay to ensure the modal is visible before adding the 'active' class for the animation
+        setTimeout(() => {
+            sessionModal.classList.add('active');
+        }, 10);
+    };
+
+    // --- Speech Recognition (Unchanged) ---
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+    if (recognition) {
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+            voiceBtn.classList.add('listening');
+            userInput.placeholder = 'Listening...';
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            userInput.value = transcript;
+            voiceBtn.classList.remove('listening');
+            userInput.placeholder = 'Type a message...';
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            voiceBtn.classList.remove('listening');
+            userInput.placeholder = 'Type a message...';
+            addMessage('Voice recognition failed. Please try again.', 'bot');
+        };
+
+        recognition.onend = () => {
+            voiceBtn.classList.remove('listening');
+            userInput.placeholder = 'Type a message...';
+        };
+
+        voiceBtn.addEventListener('click', () => {
+            if (voiceBtn.classList.contains('listening')) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        });
+    } else {
+        voiceBtn.style.display = 'none';
+        console.warn('Speech Recognition API is not supported by this browser.');
+    }
+
+    // --- Message and UI Functions (Slightly modified addMessage) ---
+
+    function addMessage(text, sender, isFunction = false, imageSrc = null) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        if (isFunction) {
+            messageDiv.classList.add('function-message');
+        }
+        
+        if (imageSrc) {
+            const imgElement = document.createElement('img');
+            imgElement.src = imageSrc;
+            imgElement.className = 'user-image';
+            messageDiv.appendChild(imgElement);
+        }
+        
+        // Use innerHTML for text to allow simple markdown like **bold** in the welcome message
+        messageDiv.innerHTML += text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return messageDiv;
+    }
+
+    // Function to handle image input and preview (Unchanged)
+    imageBtn.addEventListener('click', () => {
+        imageInput.click();
+    });
+
+    imageInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                selectedImage = {
+                    file: file,
+                    url: e.target.result
+                };
+                displayImagePreview(selectedImage.url);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function displayImagePreview(imageURL) {
+        imagePreviewContainer.innerHTML = '';
+        const previewDiv = document.createElement('div');
+        previewDiv.className = 'selected-image-container';
+        previewDiv.innerHTML = `
+            <img src="${imageURL}" alt="Selected Image Preview">
+            <button class="remove-image-btn">×</button>
+        `;
+        imagePreviewContainer.appendChild(previewDiv);
+        
+        previewDiv.querySelector('.remove-image-btn').addEventListener('click', () => {
+            selectedImage = null;
+            imageInput.value = '';
+            imagePreviewContainer.innerHTML = '';
+        });
+    }
+
+    function removeExistingTypingIndicators() {
+        const typingIndicators = document.querySelectorAll('.typing-indicator');
+        typingIndicators.forEach(indicator => indicator.remove());
+    }
+
+    function addTypingIndicator() {
+        removeExistingTypingIndicators();
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message bot-message typing-indicator';
+        messageDiv.innerHTML = '<span></span><span></span><span></span>';
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return messageDiv;
+    }
+
+    // --- Streaming and API Logic (Modified to handle new JSON format) ---
+
+    async function streamAndRender(response) {
+        if (!response.body) {
+            throw new Error("ReadableStream not supported by browser.");
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        let currentBotMessageDiv = null;
+        let botText = '';
+        let buffer = '';
+        let isFirstChunk = true;
+
+        const timeout = setTimeout(() => {
+            removeExistingTypingIndicators();
+            addMessage('No response received from the server. Please try again.', 'bot');
+        }, 10000);
+
+        while (true) {
+            const { value, done } = await reader.read();
+
+            if (isFirstChunk) {
+                clearTimeout(timeout);
+                isFirstChunk = false;
+            }
+
+            if (done) break;
+
+            // Append the decoded chunk to the buffer
+            buffer += decoder.decode(value, { stream: true });
+            
+            // Split the buffer by the newline separator, keeping the last incomplete chunk
+            const lines = buffer.split('\n\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) continue; // Skip empty lines
+
+                try {
+                    const data = JSON.parse(trimmedLine);
+                    
+                    if (data.type === 'text') {
+                        // If we are currently showing a typing indicator, remove it
+                        if (currentBotMessageDiv && currentBotMessageDiv.classList.contains('typing-indicator')) {
+                            currentBotMessageDiv.classList.remove('typing-indicator');
+                            currentBotMessageDiv.innerHTML = '';
+                        }
+                        // Create a new message div if it doesn't exist yet
+                        if (!currentBotMessageDiv || currentBotMessageDiv.classList.contains('function-message')) {
+                            currentBotMessageDiv = addMessage('', 'bot');
+                            botText = ''; // Reset botText for a new message
+                        }
+                        
+                        // Append and update text
+                        botText += data.text;
+                        currentBotMessageDiv.textContent = botText;
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        
+                    } else if (data.type === 'tool_confirmation') {
+                        // Add function message and stop rendering stream for user input
+                        removeExistingTypingIndicators();
+                        currentBotMessageDiv = addMessage(`Awaiting confirmation for: ${data.name}`, 'bot', true);
+                        
+                        reader.cancel('User confirmation required');
+                        await handleToolConfirmation(data);
+                        return; // Exit streamAndRender to wait for user input
+                        
+                    } else if (data.type === 'function_call') {
+                        // Add function message and prepare for next response
+                        removeExistingTypingIndicators();
+                        const funcMessage = `${data.name} started`;
+                        addMessage(funcMessage, 'bot', true);
+                        addTypingIndicator();
+                        currentBotMessageDiv = null; // Clear to wait for the next 'text' or 'function_response'
+                        botText = '';
+                        
+                    } else if (data.type === 'function_response') {
+                        // Add function response message and prepare for next response
+                        removeExistingTypingIndicators();
+                        addMessage(`${data.name} completed`, 'bot', true);
+                        addTypingIndicator();
+                        currentBotMessageDiv = null; // Clear to wait for the next 'text' or 'function_response'
+                        botText = '';
+                    }
+                } catch (error) {
+                    console.error("Failed to parse message:", trimmedLine, error);
+                }
+            }
+        }
+        removeExistingTypingIndicators();
+    }
+
+    // Function to handle tool confirmation modal (Unchanged logic, re-uses confirmation-modal-backdrop/modal)
+
+
+// Assuming currentSessionId is available in the scope.
+
+async function handleToolConfirmation(toolInfo) {
+    // Create the confirmation modal elements dynamically since the session modal might be using the IDs
+    const modalBackdrop = document.createElement('div');
+    modalBackdrop.className = 'confirmation-modal-backdrop';
+    const modal = document.createElement('div');
+    modal.className = 'confirmation-modal active';
+    modal.innerHTML = `
+        <h3>Confirmation Required</h3>
+        <p>${toolInfo.hint || 'Please provide your input to confirm.'}</p>
+        <input type="text" id="tool-confirmation-input" placeholder="Enter data...">
+        <button id="tool-confirm-btn">Confirm</button>
+    `;
+    document.body.appendChild(modalBackdrop);
+    document.body.appendChild(modal);
+
+    const confirmBtn = document.getElementById('tool-confirm-btn');
+    const confirmationInput = document.getElementById('tool-confirmation-input');
+
+    return new Promise(resolve => {
+        confirmBtn.addEventListener('click', async () => {
+            const approvedValue = confirmationInput.value;
+            const confirmationId = toolInfo.confirmation_id;
+
+            document.body.removeChild(modal);
+            document.body.removeChild(modalBackdrop);
+
+            // CORRECTED approvalPayload STRUCTURE
+            const approvalPayload = {
+               
+                "sessionId": currentSessionId, // Use the active Session ID
+                "approvedValue": approvedValue,
+                "confirmationId": confirmationId,
+              
+            }; 
+
+            addMessage(`Sending confirmation with value: "${approvedValue}"`, 'user');
+            addTypingIndicator();
+            try {
+                // Fixed syntax: Used CHAT_ENDPOINT variable correctly
+                const newResponse = await fetch(CHAT_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(approvalPayload)
+                });
+                await streamAndRender(newResponse);
+                resolve();
+            } catch (error) {
+                console.error("Error sending confirmation:", error);
+                addMessage("Error sending confirmation. Please check the console.", 'bot');
+                removeExistingTypingIndicators();
+                resolve();
+            }
+        });
+    });
+}
+
+    // Main function to send the message and handle multimodal content (Modified to check for Session ID)
+async function sendMessage() {
+    if (!currentSessionId) {
+        alert("Please enter a Session ID before sending a message.");
+        sessionModalBackdrop.style.display = 'flex';
+        sessionModal.classList.add('active');
+        return;
+    }
+
+    const message = userInput.value.trim();
+    if (!message && !selectedImage) return;
+
+    // Display user message and optional image immediately
+    addMessage(message, 'user', false, selectedImage ? selectedImage.url : null);
+    userInput.value = '';
+    imagePreviewContainer.innerHTML = '';
+
+    addTypingIndicator();
+
+    // 1. Declare imageData and mimeType in the outer scope
+    let imageData = null; 
+    let mimeType = null;
+    
+    // The requestParts logic for content (text/image parts) 
+    // is actually unnecessary since the backend uses the flattened
+    // text and imgData fields in the requestBody.
+    // However, we still use this block to correctly set imageData and mimeType.
+
+    if (selectedImage) {
+        // 2. Assign to the outer-scoped variable (removed 'const')
+        imageData = selectedImage.url.split(',')[1];
+        mimeType = selectedImage.url.split(':')[1].split(';')[0];
+    }
+    
+    selectedImage = null; // Clear the selected image after adding it to the request
+
+    const requestBody = {
+        "sessionId": currentSessionId, 
+        "text": message,
+        "imgData": imageData,
+        "confirmationId":null,
+        "approvedValue":null
+    };
+
+    
+    try {
+        const response = await fetch(CHAT_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody)
+        });
+        await streamAndRender(response);
+    } catch (error) {
+        console.error("Error during initial fetch:", error);
+        removeExistingTypingIndicators();
+        addMessage("Could not connect to the chat server. Please check the connection and your Session ID.", 'bot');
+    }
+}
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    userInput.addEventListener('keypress', (event) => {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+</script>
+
+</body>
+</html>
