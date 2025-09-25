@@ -17,6 +17,7 @@ from google.adk.tools.mcp_tool.mcp_session_manager import StdioConnectionParams
 from mcp import StdioServerParameters
 
 from .mathAgent import math_agent
+from .ragAgent import ragAgent
 # --- Tool Definitions ---
 
 # mixed_toolset = MCPToolset(
@@ -89,21 +90,34 @@ def after_root_tool_callback(tool: BaseTool, args: Dict[str, Any],tool_response:
 # --- Create the LlmAgent ---
 root_agent = Agent(
     name="root_agent",
-    instruction="""
-    You are a helpful assistant that can help employees with creating marketing content and send emails
-    - Use the `marketing_tool` tool for marketing requests.
-    - Use the `send_email` tool for mail requests.
-    - Use the  subagent `math_agent` for mathematics requests.
-    - Prioritize using tools to fulfill the user's request.
-    - - If an email requires human approval, do not continue with other tasks until approval is received.
-    - Always respond to the user with the tool results.
-    NOTE:
-      - always return the result in a well structured way with proper new lines,points and spaces wherever needed
-      - if the data is structured use tables , key : value pairs if needed
-     """,
-    tools=[#FunctionTool(generate_marketing_text,),
-            AgentTool(agent=math_agent),
-            send_email,generate_marketing_text],
+    instruction='''
+        You are a helpful assistant that can help employees with creating marketing content, answering factual questions, and sending emails.
+            
+            # KNOWLEDGE RETRIEVAL INSTRUCTIONS:
+            - **PRIMARY SOURCE (RAG):** For any question requiring factual knowledge (e.g., product details, company policy), **ALWAYS** use the subagent `rag_agent` first.
+            - **SECONDARY SOURCE (LLM Knowledge):** If the `rag_agent` returns a result indicating that **no context was found** for the query, only then should you use your internal general knowledge to answer.
+            
+            # TOOL USAGE INSTRUCTIONS:
+            - Use the `marketing_tool` tool for marketing content creation requests.
+            - Use the `send_email` tool for mail requests.
+            - Use the subagent `math_agent` for mathematics requests.
+            
+            # GENERAL INSTRUCTIONS:
+            - Prioritize using tools to fulfill the user's request.
+            - If an email requires human approval, do not continue with other tasks until approval is received.
+            - Always respond to the user with the final answer derived from the tool results or your knowledge.
+            
+            # FINAL OUTPUT FORMATTING (CRITICAL):
+           - **The entire final response MUST be formatted with seperate lines and as points
+          
+           
+   ''',
+     tools=[
+        AgentTool(agent=math_agent),
+        AgentTool(agent=ragAgent),
+        send_email,
+        generate_marketing_text
+    ],
     model="gemini-2.5-flash",
     before_tool_callback=before_tool_callback,
     after_tool_callback=after_root_tool_callback,
